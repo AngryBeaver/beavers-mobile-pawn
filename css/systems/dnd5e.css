@@ -1,0 +1,67 @@
+/* dnd5e only (#bmp-root.bmp-system-dnd5e, set from game.system.id). Checked against dnd5e 5.3.3's own
+ * dnd5e.css.
+ */
+
+/* The character sheet's tab content, .sheet-body .main-content, is pinned to fill a fixed-size desktop
+ * window (position: absolute; inset: 0) and scrolls internally on its own (overflow: hidden auto):
+ *   .dnd5e2.sheet.actor.character .sheet-body .main-content {
+ *     display: grid; position: absolute; inset: 0; overflow: hidden auto; ...
+ *   }
+ * Our sheet has no fixed height (.bmp-sheet-window is height: auto, sized to content, so the whole phone
+ * page scrolls instead). An absolutely positioned, inset: 0 element needs its containing block to have a
+ * definite height to size itself; ours doesn't, so instead of scrolling internally it mis-sizes: content
+ * gets cropped, with a stray empty gap where it expected more room. Freeing it back into the normal flow
+ * lets it take the height its content actually needs, and our own page becomes the only scrollbar.
+ * (Other dnd5e sheet types - npc, vehicle, group, item - may have their own similarly pinned content pane;
+ * if one shows the same cropping/empty-gap symptom, it needs the same treatment under its own selector.)
+ */
+#bmp-root.bmp-system-dnd5e .bmp-sheet-window .sheet-body .main-content {
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* The tab strip, nav.tabs, is built for a "vertical tabs" sidebar glued to the side of a full desktop
+ * window (assuming spare width to float in, so it can hide behind the sheet at z-index: -1):
+ *   .dnd5e2.vertical-tabs nav.tabs {
+ *     --tab-full-width: 41px; width: var(--tab-full-width); position: absolute;
+ *     flex-direction: column; z-index: -1; background: var(--dnd5e-color-black); ...
+ *   }
+ *   .dnd5e2.vertical-tabs nav.tabs.tabs-right { left: 100%; border-radius: 0 6px 6px 0; }
+ *   .dnd5e2.sheet.actor nav.tabs { top: calc(var(--dnd5e-sheet-header-height) + 1rem); }
+ * There is no spare width here: pin it into the sheet's own flow as a plain horizontal bar, full width,
+ * above the content, instead of a fixed 41px sidebar. Under position: static, top/right/bottom/left/inset
+ * have no effect at all, so they're left out rather than kept as dead, easily-self-contradicting code (an
+ * earlier version of this rule set top/left, then a later "inset: auto" in the same block silently reset
+ * them, since inset is shorthand for all four). The black background and gold border are dnd5e's own
+ * styling and stay; only the geometry changes.
+ */
+#bmp-root.bmp-system-dnd5e .bmp-sheet-window nav.tabs {
+  top: 0;
+  left: 0;
+  position: absolute !important;
+  z-index: auto !important;
+  width: 100% !important;
+  height: 36px !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  justify-content: space-evenly !important;
+  flex-wrap: wrap !important;
+  border-radius: 4px !important;
+}
+
+/* The Inventory tab's icon is a <dnd5e-icon> custom element (an SVG sealed in a closed shadow root),
+ * unlike the other tabs' <i class="fas ..."> icons, which Foundry itself marks inert="" so a tap always
+ * falls through to the surrounding <a data-action="tab"> button. dnd5e-icon isn't inert, so mobile-pawn.css
+ * making the whole tab strip tappable (nav.tabs *) makes it a hit-testable target in its own right too -
+ * its internal SVG (sizing we can't see or reach through the closed shadow root) becomes a second,
+ * differently shaped target overlapping part of the button, and only the sliver outside it reaches the <a>.
+ * Give it the same "invisible to taps" treatment the inert icons already get, so every tap on that button
+ * falls through to the <a>, the same as every other tab.
+ */
+#bmp-root.bmp-system-dnd5e .bmp-sheet-window nav.tabs dnd5e-icon {
+  pointer-events: none !important;
+}

@@ -1,0 +1,78 @@
+{
+  "beaversMobilePawn": {
+    "settings": {
+      "role": {
+        "name": "This device is",
+        "hint": "Table: the shared screen that shows the map and the paths players drag. Phone: shows only your character sheet and the move grid. Follow GM assignment: uses the role the GM gave your user, and without one small touch screens of non-GM users become phones. Set this only if this device should ignore the GM's assignment.",
+        "auto": "Follow GM assignment",
+        "phone": "Phone",
+        "table": "Table screen",
+        "off": "Off (normal Foundry)"
+      },
+      "padColumns": {
+        "name": "Grid columns on the phone",
+        "hint": "The fewest grid cells across the phone's move grid. The grid also always shows at least 11 rows, on a short screen the cells get smaller so both fit."
+      },
+      "maxSteps": {
+        "name": "Longest path (cells)",
+        "hint": "Paths longer than this are cut off. The drag path is sent to the table screen, this keeps messages small."
+      },
+      "stepDelay": {
+        "name": "Movement speed (ms per cell)",
+        "hint": "How long the token takes per cell when a player confirms a move from the phone."
+      }
+    },
+    "assign": {
+      "menuName": "Roles and characters",
+      "menuLabel": "Assign roles",
+      "menuHint": "Decide per user whether they are a phone, the table screen or a normal client, and which characters a phone user can pick.",
+      "title": "Roles and characters",
+      "hint": "Auto: small touch screens of players become phones, everything else is a normal Foundry client. Characters: what the user can pick on the phone. Leave empty to offer every character the user owns. Only owned characters can be moved, grant ownership in the actor's permissions. Changes apply at once, a changed role reloads that user's browser.",
+      "user": "User",
+      "roleColumn": "Role",
+      "characters": "Characters on the phone",
+      "noneOwned": "Owns no characters",
+      "notOwner": "This user does not own this character and cannot move its token.",
+      "save": "Save",
+      "saved": "Roles and characters saved.",
+      "role": {
+        "auto": "Auto",
+        "phone": "Phone",
+        "table": "Table screen",
+        "off": "Normal Foundry"
+      }
+    },
+    "phone": {
+      "tabSheet": "Sheet",
+      "tabGrid": "Move",
+      "exit": "Exit phone mode",
+      "exitTitle": "Leave phone mode?",
+      "exitText": "This device switches back to the normal Foundry screen. Closing this browser tab brings the phone back.",
+      "exitStay": "Stay",
+      "exitLeave": "Leave",
+      "restore": "Phone mode",
+      "chooseCharacter": "Choose your character",
+      "noCharacterShort": "No character",
+      "noCharacter": "No character is available for your user. The GM can assign one in Module Settings, Roles and characters.",
+      "sheetFailed": "The character sheet could not be opened: {error}",
+      "sheetMissing": "The character sheet did not open. Check the browser console for errors.",
+      "hint": "Double-tap the grid where your character is, keep your finger down on the second tap and drag the path.",
+      "confirmHint": "Tap the destination to move, double-tap anywhere else to cancel.",
+      "cancelHint": "Double-tap to cancel.",
+      "waiting": "Waiting for the table screen...",
+      "noTable": "The table screen did not answer. Is it connected and set to Table?",
+      "blocked": "A wall is in the way, the path was shortened.",
+      "steps": "{steps} cells",
+      "stepsDistance": "{steps} cells, {distance} {units}",
+      "err": {
+        "no-token": "Your character has no token on the table's scene.",
+        "no-scene": "The table screen has no scene loaded.",
+        "no-square-grid": "Only square grids are supported.",
+        "not-owner": "You do not own this character.",
+        "bad-path": "The table screen rejected the path.",
+        "table-error": "The table screen hit an error, see its browser console."
+      },
+      "reloading": "Switching this device to phone mode..."
+    }
+  }
+}

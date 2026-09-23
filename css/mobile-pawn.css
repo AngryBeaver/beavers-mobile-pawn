@@ -1,0 +1,414 @@
+/* Phone mode: hide all of Foundry, show only #bmp-root. */
+body.bmp-phone {
+  overflow: hidden;
+  background: #0d0f14;
+}
+body.bmp-phone > *:not(#bmp-root) {
+  display: none !important;
+}
+
+/* One neutral dark palette with a single accent. Everything below uses these tokens. */
+#bmp-root {
+  --bmp-bg: #0d0f14;
+  --bmp-surface: #161a22;
+  --bmp-surface-2: #1f2430;
+  --bmp-line: rgba(255, 255, 255, 0.08);
+  --bmp-fg: #eef0f6;
+  --bmp-muted: #8a93a6;
+  --bmp-accent: #9b8cff;
+  --bmp-on-accent: #120f2b;
+  --bmp-bad: #ff6b6b;
+  --bmp-grid: #1c212c;
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--bmp-bg);
+  color: var(--bmp-fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#bmp-root button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- header: exit on the left, the character you are playing next to it ---- */
+#bmp-root .bmp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+  border-bottom: 1px solid var(--bmp-line);
+  background: var(--bmp-bg);
+}
+#bmp-root .bmp-exit {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bmp-surface-2);
+  color: var(--bmp-fg);
+  font-size: 18px;
+}
+#bmp-root .bmp-exit:active {
+  background: var(--bmp-line);
+}
+#bmp-root .bmp-actor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px 0 4px;
+  border: 1px solid var(--bmp-line);
+  border-radius: 22px;
+  background: var(--bmp-surface);
+  color: var(--bmp-fg);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+#bmp-root .bmp-actor:disabled {
+  opacity: 1;
+}
+#bmp-root .bmp-actor.bmp-single {
+  padding-right: 6px;
+}
+#bmp-root .bmp-actor.bmp-single .bmp-caret,
+#bmp-root .bmp-actor.bmp-empty .bmp-avatar {
+  display: none;
+}
+#bmp-root .bmp-actor.bmp-empty {
+  padding-left: 14px;
+  color: var(--bmp-muted);
+}
+#bmp-root .bmp-actor-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#bmp-root .bmp-caret {
+  color: var(--bmp-muted);
+  font-size: 12px;
+}
+#bmp-root .bmp-avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bmp-surface-2);
+  border: 0;
+}
+
+#bmp-root .bmp-pages {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+#bmp-root .bmp-pages::-webkit-scrollbar {
+  display: none;
+}
+#bmp-root .bmp-page {
+  position: relative;
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  min-width: 0;
+  color: var(--bmp-muted);
+}
+
+/* ---- sheet page: the real Foundry sheet, made static and non-interactable ---- */
+#bmp-root .bmp-sheet-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  /* Foundry gives every window an inline z-index (100+, raised whenever it is brought to front). Without its own
+     stacking context the adopted sheet competes with our header and drawer with that number and wins, so the
+     character picker ended up behind the sheet. Isolated, whatever z-index the sheet has stays inside this page. */
+  isolation: isolate;
+}
+#bmp-root .bmp-sheet-window {
+  position: relative !important;
+  /* Any transform value other than "none" makes this the containing block for position:fixed descendants too
+     (not just absolute ones). Without it, something inside the sheet that uses position:fixed (a pinned
+     header banner, a background image, ...) would anchor to the browser viewport instead of the sheet, and
+     could land anywhere on screen, including under our own header. translate(0, 0) keeps that anchoring
+     while moving nothing. */
+  transform: translate(0, 0) !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+#bmp-root .bmp-sheet-window .window-content,
+#bmp-root .bmp-sheet-window .sheet-body {
+  overflow: visible !important;
+  height: auto !important;
+  /* Many systems pull their content up by roughly a header's height with a negative margin, to sit under a
+     transparent title bar / banner. We remove that header entirely (below), so nothing is left to sit under:
+     left alone, the negative margin still applies and pulls the content up over the top of its own box, into
+     whatever is above it on the page, our own header included. */
+  margin-block-start: 0 !important;
+  margin-top: 0 !important;
+}
+/* our header already names the character, the window title bar only wastes space */
+#bmp-root .bmp-sheet-window .window-header,
+#bmp-root .bmp-sheet-window .window-resize-handle {
+  display: none !important;
+}
+/* System-specific quirks (a system's sheet CSS assuming a full-size floating window) live in
+   css/systems/<id>.css, scoped to #bmp-root.bmp-system-<id> so they only apply to that game system. */
+/* Children never receive touches, so nothing on the sheet can be tapped or edited, only the page scrolls.
+   The one exception is the tab navigation: without it a multi-tab sheet is stuck on its first tab forever,
+   so tapping between tabs is allowed while everything else (fields, buttons, item rows, ...) stays inert. */
+#bmp-root .bmp-sheet-page * {
+  pointer-events: none !important;
+  user-select: none;
+}
+#bmp-root .bmp-sheet-page nav.tabs,
+#bmp-root .bmp-sheet-page nav.tabs * {
+  pointer-events: auto !important;
+}
+
+#bmp-root .bmp-note {
+  margin: 32px 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ---- grid page ---- */
+#bmp-root .bmp-grid-page {
+  display: flex;
+  flex-direction: column;
+}
+#bmp-root .bmp-pad {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  touch-action: none;
+  display: block;
+}
+#bmp-root .bmp-status {
+  margin: 8px 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--bmp-surface);
+  color: var(--bmp-fg);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+/* ---- tab bar: a floating segmented control ---- */
+#bmp-root .bmp-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 4px;
+  border: 1px solid var(--bmp-line);
+  border-radius: 20px;
+  background: var(--bmp-surface);
+}
+#bmp-root .bmp-tabs button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--bmp-muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+#bmp-root .bmp-tabs button.active {
+  background: color-mix(in srgb, var(--bmp-accent) 18%, transparent);
+  color: var(--bmp-accent);
+}
+
+/* ---- drawer: bottom sheet for the character picker and the exit confirmation ---- */
+#bmp-root .bmp-drawer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+}
+#bmp-root .bmp-drawer[hidden] {
+  display: none;
+}
+#bmp-root .bmp-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+#bmp-root .bmp-panel {
+  position: relative;
+  width: 100%;
+  max-height: 80%;
+  overflow-y: auto;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: var(--bmp-surface);
+  border-top: 1px solid var(--bmp-line);
+  animation: bmp-rise 0.18s ease-out;
+}
+@keyframes bmp-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+#bmp-root .bmp-panel h2 {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  font-size: 18px;
+  color: var(--bmp-fg);
+}
+#bmp-root .bmp-panel p {
+  margin: 0 0 16px;
+  color: var(--bmp-muted);
+  line-height: 1.4;
+}
+#bmp-root .bmp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#bmp-root .bmp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--bmp-surface-2);
+  color: var(--bmp-fg);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+#bmp-root .bmp-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#bmp-root .bmp-item .fa-check {
+  visibility: hidden;
+  color: var(--bmp-accent);
+}
+#bmp-root .bmp-item.current {
+  border-color: var(--bmp-accent);
+}
+#bmp-root .bmp-item.current .fa-check {
+  visibility: visible;
+}
+#bmp-root .bmp-row {
+  display: flex;
+  gap: 10px;
+}
+#bmp-root .bmp-row button {
+  flex: 1;
+  height: 50px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--bmp-surface-2);
+  color: var(--bmp-fg);
+}
+#bmp-root .bmp-row .bmp-leave {
+  background: var(--bmp-bad);
+  color: #2a0a0a;
+}
+
+/* ---- back door in the normal UI after leaving phone mode ---- */
+.bmp-restore {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 100000;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 20px;
+  background: #9b8cff;
+  color: #120f2b;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---- GM dialog: roles and characters ---- */
+.bmp-assignments .window-content {
+  gap: 8px;
+}
+.bmp-assignments .bmp-assign-hint {
+  margin: 0;
+  opacity: 0.8;
+}
+.bmp-assignments .bmp-assign-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bmp-assignments .bmp-assign-table th {
+  text-align: left;
+  padding: 4px 6px;
+}
+.bmp-assignments .bmp-assign-table td {
+  padding: 6px;
+  vertical-align: top;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+}
+.bmp-assignments .bmp-user {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.bmp-assignments .bmp-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+.bmp-assignments .bmp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.bmp-assignments .bmp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.bmp-assignments .bmp-chip-warn span {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.bmp-assignments .bmp-none {
+  opacity: 0.6;
+  font-style: italic;
+}
