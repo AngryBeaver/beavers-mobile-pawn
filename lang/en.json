@@ -27,9 +27,10 @@
       "menuLabel": "Assign roles",
       "menuHint": "Decide per user whether they are a phone, the table screen or a normal client, and which characters a phone user can pick.",
       "title": "Roles and characters",
-      "hint": "Auto: small touch screens of players become phones, everything else is a normal Foundry client. Characters: what the user can pick on the phone. Leave empty to offer every character the user owns. Only owned characters can be moved, grant ownership in the actor's permissions. Changes apply at once, a changed role reloads that user's browser.",
+      "hint": "Auto: small touch screens of players become phones, everything else is a normal Foundry client. Characters: what the user can pick on the phone. Leave empty to offer every character the user owns. Only owned characters can be moved, grant ownership in the actor's permissions. Seat: the edge of the table screen the player sits at, so up on their phone means away from them on the table. Changes apply at once, a changed role reloads that user's browser.",
       "user": "User",
       "roleColumn": "Role",
+      "seatColumn": "Seat at the table",
       "characters": "Characters on the phone",
       "noneOwned": "Owns no characters",
       "notOwner": "This user does not own this character and cannot move its token.",
@@ -40,6 +41,12 @@
         "phone": "Phone",
         "table": "Table screen",
         "off": "Normal Foundry"
+      },
+      "seat": {
+        "bottom": "Bottom (normal)",
+        "left": "Left",
+        "top": "Top",
+        "right": "Right"
       }
     },
     "phone": {

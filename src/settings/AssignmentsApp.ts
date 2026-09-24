@@ -1,4 +1,5 @@
 import { normalizeAssignments, USER_ROLES, type Assignments } from "../core/assignments.js";
+import { SEATS, type Seat } from "../core/seat.js";
 import { MODULE_ID } from "../core/protocol.js";
 import { getAssignments, S } from "../settings.js";
 
@@ -7,8 +8,9 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /**
- * GM only. One row per user: the role of that user (phone, table screen, ...) and which characters the user may
- * control from the phone. Only characters the user owns are offered, the table screen checks ownership too.
+ * GM only. One row per user: the role of that user (phone, table screen, ...), which edge of the table screen
+ * the user sits at, and which characters the user may control from the phone. Only characters the user owns are
+ * offered, the table screen checks ownership too.
  */
 export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
   static DEFAULT_OPTIONS = {
@@ -16,7 +18,7 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
     tag: "form",
     classes: ["bmp-assignments"],
     window: { title: "beaversMobilePawn.assign.title", icon: "fa-solid fa-mobile-screen", resizable: true },
-    position: { width: 680, height: "auto" },
+    position: { width: 800, height: "auto" },
     form: { handler: AssignmentsApp.onSubmit, closeOnSubmit: true },
   };
 
@@ -33,6 +35,10 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
       const roles = USER_ROLES.filter((r) => !(user.isGM && r === "phone")).map(
         (r) => `<option value="${r}" ${r === cur.role ? "selected" : ""}>${esc(tr(`role.${r}`))}</option>`,
       ).join("");
+      const seat = cur.seat ?? "bottom";
+      const seats = SEATS.map(
+        (v) => `<option value="${v}" ${v === seat ? "selected" : ""}>${esc(tr(`seat.${v}`))}</option>`,
+      ).join("");
       const boxes = offered.length
         ? offered
             .map((a) => {
@@ -45,7 +51,8 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
         : `<span class="bmp-none">${esc(tr("noneOwned"))}</span>`;
       return `<tr data-user="${user.id}">
         <td class="bmp-user"><span class="bmp-dot" style="background:${esc(user.color)}"></span>${esc(user.name)}</td>
-        <td><select>${roles}</select></td>
+        <td><select class="bmp-role">${roles}</select></td>
+        <td><select class="bmp-seat">${seats}</select></td>
         <td class="bmp-chips">${boxes}</td>
       </tr>`;
     });
@@ -53,7 +60,7 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
     return `
       <p class="bmp-assign-hint">${esc(tr("hint"))}</p>
       <table class="bmp-assign-table">
-        <thead><tr><th>${esc(tr("user"))}</th><th>${esc(tr("roleColumn"))}</th><th>${esc(tr("characters"))}</th></tr></thead>
+        <thead><tr><th>${esc(tr("user"))}</th><th>${esc(tr("roleColumn"))}</th><th>${esc(tr("seatColumn"))}</th><th>${esc(tr("characters"))}</th></tr></thead>
         <tbody>${rows.join("")}</tbody>
       </table>
       <footer class="form-footer">
@@ -68,9 +75,10 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
   static async onSubmit(this: AssignmentsApp, _event: Event, form: HTMLFormElement) {
     const out: Assignments = {};
     for (const row of Array.from(form.querySelectorAll<HTMLElement>("tr[data-user]"))) {
-      const role = row.querySelector("select")!.value as Assignments[string]["role"];
+      const role = row.querySelector<HTMLSelectElement>("select.bmp-role")!.value as Assignments[string]["role"];
+      const seat = row.querySelector<HTMLSelectElement>("select.bmp-seat")!.value as Seat;
       const actors = Array.from(row.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map((i) => i.value);
-      out[row.dataset.user!] = { role, actors };
+      out[row.dataset.user!] = { role, actors, seat };
     }
     await game.settings.set(MODULE_ID, S.ASSIGNMENTS, normalizeAssignments(out));
     ui.notifications.info(tr("saved"));

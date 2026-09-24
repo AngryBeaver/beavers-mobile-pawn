@@ -1,9 +1,10 @@
-/* Phone mode: hide all of Foundry, show only #bmp-root. */
+/* Phone mode: hide all of Foundry, show only #bmp-root, plus Foundry's tooltips for the sheet (they live directly
+   in body, and Foundry's own rules still decide when they are shown). */
 body.bmp-phone {
   overflow: hidden;
   background: #0d0f14;
 }
-body.bmp-phone > *:not(#bmp-root) {
+body.bmp-phone > *:not(#bmp-root, #tooltip, .locked-tooltip) {
   display: none !important;
 }
 
@@ -184,6 +185,20 @@ body.bmp-phone > *:not(#bmp-root) {
 #bmp-root .bmp-sheet-page nav.tabs,
 #bmp-root .bmp-sheet-page nav.tabs * {
   pointer-events: auto !important;
+}
+/* Hover tooltips: an element with a Foundry tooltip takes touches again, so pressing it fires the pointerenter
+   Foundry's TooltipManager waits for (the tooltip shows after ~0.5 s of holding, and hides after release).
+   Its children stay inert, so the press always lands on the tooltipped element itself. Taps on it are still
+   swallowed, by PhoneApp (capture listeners on the sheet page), so nothing on the sheet can be clicked. */
+#bmp-root .bmp-sheet-page :is([data-tooltip], [data-tooltip-html], [data-tooltip-text]) {
+  pointer-events: auto !important;
+  -webkit-touch-callout: none; /* no iOS long-press menu while holding for the tooltip */
+}
+/* Foundry's tooltips (z-index 9999) would open behind the phone page (100000), and can be wider than the phone. */
+body.bmp-phone #tooltip,
+body.bmp-phone .locked-tooltip {
+  z-index: 100001 !important;
+  max-width: calc(100vw - 16px) !important;
 }
 
 #bmp-root .bmp-note {

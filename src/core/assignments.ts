@@ -1,3 +1,5 @@
+import { SEATS, type Seat } from "./seat.js";
+
 /** What the GM can assign to a user. "auto" leaves the decision to the device (see resolveRole). */
 export const USER_ROLES = ["auto", "phone", "table", "off"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -6,6 +8,8 @@ export interface Assignment {
   role: UserRole;
   /** Actors this user may pick on the phone. Empty: everything the user owns. */
   actors: string[];
+  /** Where the player sits at the table screen. Left out for "bottom", the screen's own orientation. */
+  seat?: Seat;
 }
 export type Assignments = Record<string, Assignment>;
 
@@ -19,8 +23,9 @@ export function normalizeAssignments(raw: unknown): Assignments {
     const actors: string[] = Array.isArray(value.actors)
       ? [...new Set<string>(value.actors.filter((a: unknown): a is string => typeof a === "string"))]
       : [];
-    if (role === "auto" && !actors.length) continue;
-    out[userId] = { role, actors };
+    const seat: Seat = SEATS.includes(value.seat) ? value.seat : "bottom";
+    if (role === "auto" && !actors.length && seat === "bottom") continue;
+    out[userId] = seat === "bottom" ? { role, actors } : { role, actors, seat };
   }
   return out;
 }

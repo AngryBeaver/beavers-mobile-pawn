@@ -8,6 +8,8 @@ Use your phone as a gamepad for your token in Foundry VTT.
   character would walk, in your user colour, with the distance.
 - **Walls**: if the path would go through a wall it is cut at the wall, on the table *and* on your phone.
 - **Release** the finger, then tap the **destination** to walk the token there, or double-tap anywhere else to cancel.
+- **Seat**: the GM sets per player which edge of the table screen they sit at (Module Settings, Roles and
+  characters). Up on the phone always means away from the player, so the path and turning match their view.
 - **Turn**: press once and slide the finger away from the cell. An arrow shows the direction and the token turns
   toward the finger while you slide. No path is drawn.
 

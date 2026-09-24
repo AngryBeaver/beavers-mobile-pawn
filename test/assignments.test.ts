@@ -18,6 +18,13 @@ describe("normalizeAssignments", () => {
   it("keeps a role without actors", () => {
     expect(normalizeAssignments({ a: { role: "table" } })).toEqual({ a: { role: "table", actors: [] } });
   });
+  it("keeps a seat other than bottom, even with nothing else set, and drops unknown seats", () => {
+    expect(normalizeAssignments({ a: { role: "auto", actors: [], seat: "left" } })).toEqual({
+      a: { role: "auto", actors: [], seat: "left" },
+    });
+    expect(normalizeAssignments({ a: { role: "phone", seat: "bottom" } })).toEqual({ a: { role: "phone", actors: [] } });
+    expect(normalizeAssignments({ a: { role: "auto", seat: "under" } })).toEqual({});
+  });
 });
 
 describe("chooseActorIds", () => {

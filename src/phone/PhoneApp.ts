@@ -8,7 +8,9 @@ import {
   type PathResultMessage,
   type PawnMessage,
 } from "../core/protocol.js";
-import { getSetting, phoneActorIds, releaseCanvas, S, setExitedPhone } from "../settings.js";
+import { angleToTable, toTable, type Seat } from "../core/seat.js";
+import { getAssignments, getSetting, phoneActorIds, releaseCanvas, S, setExitedPhone } from "../settings.js";
+import { keepScreenOn } from "./wakeLock.js";
 
 const SEND_INTERVAL_MS = 60;
 const RESULT_TIMEOUT_MS = 4000;
@@ -36,6 +38,10 @@ const esc = (s: unknown) =>
  * Gestures on the pad: double-tap the actor's cell and keep the finger down on the second tap to draw.
  * After release, a tap on the destination walks the token there, a double tap anywhere else cancels.
  * A single press that slides away from its cell turns the token toward the finger, live, without any path.
+ *
+ * The pad is drawn as the player sees it. A player sitting at another edge of the table screen (the GM sets the
+ * seat) means something else by "up": paths and angles are turned into the table's orientation only when they
+ * leave the phone (messages, token move, rotation), never for drawing.
  */
 export class PhoneApp {
   private actors: any[] = [];
@@ -56,7 +62,8 @@ export class PhoneApp {
 
   private state: State = "idle";
   private start: Cell = [0, 0]; // pad cell of the first touch
-  private path: Path = [ORIGIN];
+  private path: Path = [ORIGIN]; // as the player sees it, see tablePath()
+  private seat: Seat = "bottom"; // fixed per gesture, so a GM change mid-drag can't bend the path
   private seq = 0;
   private finalSeq = -1;
   private result?: PathResultMessage;
@@ -74,6 +81,7 @@ export class PhoneApp {
   start_() {
     this.minCols = getSetting<number>(S.PAD_COLUMNS);
     document.body.classList.add("bmp-phone");
+    keepScreenOn();
     this.buildDom();
     game.socket.on(SOCKET_NAME, (msg: PawnMessage) => {
       if (msg.type === "result" && msg.to === game.user.id) this.onResult(msg);
@@ -136,6 +144,21 @@ export class PhoneApp {
 
     this.pages = this.root.querySelector(".bmp-pages")!;
     this.sheetPage = this.root.querySelector(".bmp-sheet-page")!;
+    // Elements with a tooltip take touches (css) so the tooltip can show on a press. Swallow everything that
+    // would act on them before the sheet's own listeners see it: the sheet stays read-only, only the tabs work.
+    for (const type of ["click", "dblclick", "auxclick", "contextmenu", "pointerdown", "mousedown", "dragstart"]) {
+      this.sheetPage.addEventListener(
+        type,
+        (e) => {
+          if ((e.target as Element | null)?.closest?.("nav.tabs")) return;
+          e.stopPropagation();
+          // pointerdown only has to stay away from the sheet's handlers; for the rest also cancel the browser's own
+          // reaction (mousedown: focusing an input, which would pop up the keyboard; contextmenu: the long-press menu)
+          if (type !== "pointerdown") e.preventDefault();
+        },
+        true,
+      );
+    }
     this.actorBtn = this.root.querySelector(".bmp-actor")!;
     this.drawer = this.root.querySelector(".bmp-drawer")!;
     this.canvasEl = this.root.querySelector(".bmp-pad")!;
@@ -330,6 +353,7 @@ export class PhoneApp {
     this.canvasEl.setPointerCapture(e.pointerId);
     this.state = "turning";
     this.start = cell;
+    this.seat = currentSeat();
     this.turnAngle = undefined;
     const msg = { type: "locate", userId: game.user.id, actorId: this.actor.id };
     game.socket.emit(SOCKET_NAME, msg);
@@ -362,7 +386,8 @@ export class PhoneApp {
   private applyTurn() {
     if (this.turnAngle === undefined || !this.token?.parent) return;
     // Foundry's rotation 0 faces down (token art looks south) and grows clockwise, screen angle 0 points right.
-    const rotation = Math.round(((this.turnAngle * 180) / Math.PI - 90 + 360) % 360);
+    const angle = angleToTable(this.turnAngle, this.seat);
+    const rotation = Math.round((((angle * 180) / Math.PI - 90) % 360 + 360) % 360);
     if (this.token.rotation === rotation) return;
     this.token.update({ rotation }).catch((err: unknown) => console.warn(`${MODULE_ID} | could not turn the token`, err));
   }
@@ -388,6 +413,7 @@ export class PhoneApp {
     clearTimeout(this.tapTimer);
     this.start = cell;
     this.path = [ORIGIN];
+    this.seat = currentSeat();
     this.result = undefined;
     this.state = "dragging";
     this.finalSeq = -1;
@@ -453,6 +479,11 @@ export class PhoneApp {
 
   // ------------------------------------------------------------- network
 
+  /** The drawn path turned from the player's seat into the table's orientation. Same cells, same order. */
+  private tablePath(): Path {
+    return this.path.map((c) => toTable(c, this.seat));
+  }
+
   private send(final: boolean, immediate = false) {
     const fire = () => {
       this.sendTimer = undefined;
@@ -463,7 +494,7 @@ export class PhoneApp {
         actorId: this.actor.id,
         seq: ++this.seq,
         final,
-        steps: this.path,
+        steps: this.tablePath(),
       };
       game.socket.emit(SOCKET_NAME, msg);
     };
@@ -517,14 +548,15 @@ export class PhoneApp {
     if (!token) return this.setStatus(t("err.no-token"));
 
     this.state = "moving"; // ignore touches until the walk is done
-    const way = toWaypoints(this.path.slice(0, r.allowed));
+    const walk = this.tablePath().slice(0, r.allowed);
+    const way = toWaypoints(walk);
     const delay = getSetting<number>(S.STEP_DELAY);
     const at = (c: Cell) => ({ x: r.originX! + c[0] * r.cell!, y: r.originY! + c[1] * r.cell! });
     try {
       if (typeof token.move === "function") {
         // v14: one movement along all waypoints. The promise resolves when the animation on this client is done,
         // and this client has no canvas, so never wait longer than the walk should take.
-        const cells = stepCount(this.path.slice(0, r.allowed));
+        const cells = stepCount(walk);
         await Promise.race([token.move(way.slice(1).map(at)), sleep(cells * delay + 2000)]);
       } else {
         // v13: no movement API, chain plain updates segment by segment.
@@ -648,6 +680,8 @@ function userColor(): string | undefined {
   const n = Number(c);
   return Number.isFinite(n) ? `#${n.toString(16).padStart(6, "0")}` : undefined;
 }
+
+const currentSeat = (): Seat => getAssignments()[game.user.id]?.seat ?? "bottom";
 
 const sameCell = (a: Cell, b: Cell) => a[0] === b[0] && a[1] === b[1];
 
