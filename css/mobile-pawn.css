@@ -20,6 +20,7 @@ body.bmp-phone > *:not(#bmp-root, #tooltip, .locked-tooltip) {
   --bmp-on-accent: #120f2b;
   --bmp-bad: #ff6b6b;
   --bmp-grid: #1c212c;
+  --bmp-door: #7b7bff;
   position: fixed;
   inset: 0;
   z-index: 100000;

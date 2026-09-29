@@ -4,7 +4,8 @@
   "version": "0.1.2",
   "description": "Use your phone as a gamepad for your token: see your character sheet, swipe to a grid, drag a path and move your token on the table screen.",
   "#devDir": "c:\\vtts\\v13.351\\Data\\modules",
-  "devDir": "c:\\vtts\\v14.363\\Data\\modules",
+  "##devDir": "c:\\vtts\\v14.363\\Data\\modules",
+  "devDir": "c:\\vtts\\v14.368\\Data\\modules",
   "type": "module",
   "main": "src/main.ts",
   "scripts": {

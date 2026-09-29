@@ -12,6 +12,10 @@ Use your phone as a gamepad for your token in Foundry VTT.
   characters). Up on the phone always means away from the player, so the path and turning match their view.
 - **Turn**: press once and slide the finger away from the cell. An arrow shows the direction and the token turns
   toward the finger while you slide. No path is drawn.
+- **Doors**: while turning, slide onto a cell next to yours. If a door is the nearest wall on the way to that cell,
+  its line is drawn where it really is and Foundry's door icon shows in that cell. Plain walls are not shown.
+  Release there, then tap the door to open or close it. Tap anywhere else to drop it. A locked door looks closed, it
+  only shakes and says *Locked* when you try it. Secret doors count as plain walls.
 
 The phone never loads the map. It only knows a grid of relative cells, the table screen (which has the walls)
 does the collision check and answers. Everything runs through Foundry's own socket, there is nothing to host.

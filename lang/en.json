@@ -80,6 +80,16 @@
         "bad-path": "The table screen rejected the path.",
         "table-error": "The table screen hit an error, see its browser console."
       },
+      "door": {
+        "locked": "Locked",
+        "paused": "Game paused",
+        "out-of-reach": "Out of reach",
+        "not-allowed": "Not allowed",
+        "not-owner": "Not your character",
+        "no-token": "No token on the scene",
+        "no-scene": "No scene on the table",
+        "table-error": "Table error"
+      },
       "reloading": "Switching this device to phone mode..."
     }
   }

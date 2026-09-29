@@ -1,3 +1,4 @@
+import type { AroundDir } from "./doors.js";
 import type { Path } from "./path.js";
 
 export const MODULE_ID = "beavers-mobile-pawn";
@@ -60,6 +61,37 @@ export interface LocatedMessage {
   error?: string;
   sceneId?: string;
   tokenId?: string;
+  /** The doors the token can reach, per neighbour cell, table orientation. */
+  around?: AroundDir[];
 }
 
-export type PawnMessage = PathMessage | PathResultMessage | ClearMessage | LocateMessage | LocatedMessage;
+/** phone -> table: open or close a door next to the actor's token. The target state, never "toggle". */
+export interface DoorMessage {
+  type: "door";
+  userId: string;
+  actorId: string;
+  seq: number;
+  wallId: string;
+  open: boolean;
+}
+
+/** table -> phone: answer to DoorMessage. */
+export interface DoorResultMessage {
+  type: "doorResult";
+  to: string;
+  seq: number;
+  ok: boolean;
+  /** The door's state afterwards. */
+  open?: boolean;
+  /** "locked" | "paused" | "out-of-reach" | "not-allowed" | "no-token" | "no-scene" | "not-owner" | "table-error" */
+  error?: string;
+}
+
+export type PawnMessage =
+  | PathMessage
+  | PathResultMessage
+  | ClearMessage
+  | LocateMessage
+  | LocatedMessage
+  | DoorMessage
+  | DoorResultMessage;

@@ -1,8 +1,11 @@
 import { pickActor } from "../core/assignments.js";
+import { aroundToPad, sanitizeAround, type AroundDir } from "../core/doors.js";
 import { extendPathToward, ORIGIN, sanitizePath, stepCount, toWaypoints, type Cell, type Path } from "../core/path.js";
 import {
   MODULE_ID,
   SOCKET_NAME,
+  type DoorMessage,
+  type DoorResultMessage,
   type LocatedMessage,
   type PathMessage,
   type PathResultMessage,
@@ -20,8 +23,16 @@ const DOUBLE_TAP_MS = 350;
 const TURN_DEAD_ZONE = 0.5;
 /** The pad always shows at least this many rows; on a short screen the cells shrink to fit them. */
 const MIN_ROWS = 11;
+/** After using a door: how long the result stays, then how long everything takes to fade. */
+const DOOR_HOLD_MS = 700;
+const DOOR_FADE_MS = 400;
+const DENY_SHAKE_MS = 450;
 
-type State = "idle" | "turning" | "dragging" | "pending" | "moving";
+/**
+ * armed: a turn was released over a door, the door waits for a tap. door: the tap was sent, waiting for the table.
+ * doorFx: the table answered, the result shows and fades.
+ */
+type State = "idle" | "turning" | "dragging" | "pending" | "moving" | "armed" | "door" | "doorFx";
 
 const t = (key: string, data?: Record<string, unknown>) =>
   data ? game.i18n.format(`beaversMobilePawn.phone.${key}`, data) : game.i18n.localize(`beaversMobilePawn.phone.${key}`);
@@ -77,6 +88,13 @@ export class PhoneApp {
   private turnAngle?: number; // screen direction from the touched cell to the finger, radians
   private turnSent?: number;
   private turnTimer?: number;
+  private around: AroundDir[] = []; // walls and doors next to the token, pad orientation, from the last "located"
+  private hoverDir?: Cell; // the neighbour cell the finger is on while turning, relative to start
+  private doorSeq = 0;
+  private doorTimer?: number;
+  private fx?: { deny: boolean; text?: string; since: number };
+  private fxFrame?: number;
+  private icons = new Map<string, HTMLImageElement>();
 
   start_() {
     this.minCols = getSetting<number>(S.PAD_COLUMNS);
@@ -86,6 +104,14 @@ export class PhoneApp {
     game.socket.on(SOCKET_NAME, (msg: PawnMessage) => {
       if (msg.type === "result" && msg.to === game.user.id) this.onResult(msg);
       else if (msg.type === "located" && msg.to === game.user.id) this.onLocated(msg);
+      else if (msg.type === "doorResult" && msg.to === game.user.id) this.onDoorResult(msg);
+    });
+    // The phone has the scene's data without a canvas: keep a shown door in step when someone else uses it.
+    Hooks.on("updateWall", (wall: any) => {
+      const shown = this.around.find((a) => a.door.id === wall.id);
+      if (!shown) return;
+      shown.door.open = wall.ds === CONST.WALL_DOOR_STATES.OPEN;
+      this.draw();
     });
     // The sheet renders itself into a Foundry window, move it into our page as soon as it exists.
     const onRender = (app: any) => {
@@ -335,7 +361,14 @@ export class PhoneApp {
 
   private onDown(e: PointerEvent) {
     if (!this.actor || this.state === "turning" || this.state === "dragging" || this.state === "moving") return;
+    if (this.state === "door") return; // waiting for the table's answer
     const cell = this.cellAt(e);
+    if (this.state === "armed" && this.hoverDir && sameCell(cell, this.neighbour(this.hoverDir))) {
+      this.downCell = undefined; // its release is no tap
+      return this.useDoor();
+    }
+    // Anywhere else: the door and arrow go, and this touch counts as a fresh one (e.g. the first of a double tap).
+    if (this.state === "armed" || this.state === "doorFx") this.disarm();
     const tap = this.lastTap;
     const double = !!tap && performance.now() - tap.time < DOUBLE_TAP_MS;
     this.downCell = undefined;
@@ -355,6 +388,8 @@ export class PhoneApp {
     this.start = cell;
     this.seat = currentSeat();
     this.turnAngle = undefined;
+    this.around = [];
+    this.hoverDir = undefined;
     const msg = { type: "locate", userId: game.user.id, actorId: this.actor.id };
     game.socket.emit(SOCKET_NAME, msg);
     this.draw();
@@ -365,7 +400,8 @@ export class PhoneApp {
     const [cx, cy] = this.px(this.start);
     const dx = e.clientX - rect.left - cx;
     const dy = e.clientY - rect.top - cy;
-    if (Math.hypot(dx, dy) < this.cellPx * TURN_DEAD_ZONE) return;
+    this.hoverOver(this.cellAt(e));
+    if (Math.hypot(dx, dy) < this.cellPx * TURN_DEAD_ZONE) return this.draw();
     this.turnAngle = Math.atan2(dy, dx);
     this.downCell = undefined; // this press turned, it is no tap any more
     this.sendTurn();
@@ -403,7 +439,118 @@ export class PhoneApp {
       if (this.state === "turning") this.setStatus(t("err.no-token"));
       return;
     }
-    if (this.state === "turning") this.sendTurn();
+    if (this.state !== "turning") return;
+    this.around = aroundToPad(sanitizeAround(msg.around), this.seat);
+    this.sendTurn();
+    this.draw(); // the finger may already be on a neighbour whose walls just arrived
+  }
+
+  // -------------------------------------------------------------- doors
+
+  /** The pad cell of a neighbour direction. */
+  private neighbour(dir: Cell): Cell {
+    return [this.start[0] + dir[0], this.start[1] + dir[1]];
+  }
+
+  /** What the table reported for the neighbour the finger is on, if it is on one. */
+  private hovered(): AroundDir | undefined {
+    const d = this.hoverDir;
+    return d && this.around.find((a) => sameCell(a.dir, d));
+  }
+
+  /** Only the 8 cells next to the touched one count. Own cell or further away: nothing is shown. */
+  private hoverOver(cell: Cell) {
+    const dir: Cell = [cell[0] - this.start[0], cell[1] - this.start[1]];
+    const next = Math.max(Math.abs(dir[0]), Math.abs(dir[1])) === 1 ? dir : undefined;
+    if (next && this.hoverDir && sameCell(next, this.hoverDir)) return;
+    if (!next && !this.hoverDir) return;
+    this.hoverDir = next;
+    if (this.hovered()) navigator.vibrate?.(10);
+  }
+
+  private useDoor() {
+    const door = this.hovered()?.door;
+    if (!door) return this.disarm();
+    // Like Foundry itself: a paused game lets players turn but not use doors. No need to ask the table.
+    if (game.paused && !game.user.isGM) return this.doorFeedback(true, t("door.paused"));
+    this.state = "door";
+    const msg: DoorMessage = {
+      type: "door",
+      userId: game.user.id,
+      actorId: this.actor.id,
+      seq: ++this.doorSeq,
+      wallId: door.id,
+      open: !door.open,
+    };
+    game.socket.emit(SOCKET_NAME, msg);
+    navigator.vibrate?.(15);
+    clearTimeout(this.doorTimer);
+    this.doorTimer = window.setTimeout(() => {
+      if (this.state === "door") this.doorFeedback(true, t("noTable"));
+    }, RESULT_TIMEOUT_MS);
+    this.draw();
+  }
+
+  private onDoorResult(msg: DoorResultMessage) {
+    if (this.state !== "door" || msg.seq !== this.doorSeq) return;
+    clearTimeout(this.doorTimer);
+    const door = this.hovered()?.door;
+    if (msg.ok) {
+      if (door && typeof msg.open === "boolean") door.open = msg.open;
+      return this.doorFeedback(false);
+    }
+    this.doorFeedback(true, t(`door.${msg.error}`));
+  }
+
+  /** Show how it went, then let arrow, walls and door fade out. A denied door shakes, and the phone too. */
+  private doorFeedback(deny: boolean, text?: string) {
+    this.state = "doorFx";
+    this.fx = { deny, text, since: performance.now() };
+    if (deny) navigator.vibrate?.([60, 40, 60]);
+    if (text) this.setStatus(text);
+    cancelAnimationFrame(this.fxFrame ?? 0);
+    const frame = () => {
+      if (this.state !== "doorFx") return;
+      if (performance.now() - this.fx!.since >= DOOR_HOLD_MS + DOOR_FADE_MS) return this.disarm();
+      this.draw();
+      this.fxFrame = requestAnimationFrame(frame);
+    };
+    this.fxFrame = requestAnimationFrame(frame);
+  }
+
+  /** Drop door, walls and arrow, back to idle. */
+  private disarm() {
+    cancelAnimationFrame(this.fxFrame ?? 0);
+    clearTimeout(this.doorTimer);
+    const hadText = !!this.fx?.text;
+    this.fx = undefined;
+    this.hoverDir = undefined;
+    this.turnAngle = undefined;
+    this.state = "idle";
+    if (hadText) this.setStatus(this.actor ? t("hint") : t("noCharacter"));
+    this.draw();
+  }
+
+  /** 1 while the door result shows, then down to 0 over the fade. */
+  private fxAlpha(): number {
+    if (!this.fx) return 1;
+    const fading = performance.now() - this.fx.since - DOOR_HOLD_MS;
+    return fading <= 0 ? 1 : Math.max(0, 1 - fading / DOOR_FADE_MS);
+  }
+
+  /** Foundry's own door icon (it may be changed in CONFIG), loaded once. Undefined until it is ready. */
+  private doorIcon(open: boolean): HTMLImageElement | undefined {
+    const icons = CONFIG.controlIcons ?? {};
+    const src: string | undefined = open ? icons.doorOpen : icons.doorClosed;
+    if (!src) return undefined;
+    let img = this.icons.get(src);
+    if (!img) {
+      img = new Image();
+      img.onload = () => this.draw();
+      img.src = src;
+      this.icons.set(src, img);
+    }
+    return img.complete && img.naturalWidth ? img : undefined;
   }
 
   /** Second touch of the double tap: the finger stays down and draws the path from here. */
@@ -451,8 +598,14 @@ export class PhoneApp {
   /** A touch that did not draw: on the destination it moves, anywhere else it may be the first half of a double tap. */
   private onTap(e: PointerEvent, cancelled: boolean) {
     if (this.state === "turning") {
+      // Released over a door: door and arrow stay until the next tap, on the door it is used.
+      if (!cancelled && this.hovered()) {
+        this.state = "armed";
+        return this.draw();
+      }
       this.state = "idle";
       this.turnAngle = undefined;
+      this.hoverDir = undefined;
       this.draw();
     }
     const cell = this.downCell;
@@ -533,6 +686,11 @@ export class PhoneApp {
   }
 
   private reset() {
+    cancelAnimationFrame(this.fxFrame ?? 0);
+    clearTimeout(this.doorTimer);
+    this.fx = undefined;
+    this.hoverDir = undefined;
+    this.turnAngle = undefined;
     this.state = "idle";
     this.path = [ORIGIN];
     this.result = undefined;
@@ -607,26 +765,31 @@ export class PhoneApp {
 
     // the table draws this user's paths in the user colour, so the pad does too
     const accent = userColor() || css.getPropertyValue("--bmp-accent").trim() || "#9b8cff";
-    if (this.state === "turning") {
+    if (this.state === "turning" || this.state === "armed" || this.state === "door" || this.state === "doorFx") {
       // the touched cell, and once the finger left its centre a small arrow toward it
+      const alpha = this.fxAlpha();
       const [tx, ty] = this.start;
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.35 * alpha;
       ctx.fillStyle = accent;
       ctx.fillRect(tx * c + 1, ty * c + 1, c - 1, c - 1);
+      this.drawAround(css, accent, alpha);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = accent;
+      if (this.turnAngle !== undefined) {
+        const [cx, cy] = this.px(this.start);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.turnAngle);
+        ctx.beginPath();
+        ctx.moveTo(c * 0.4, 0);
+        ctx.lineTo(-c * 0.15, -c * 0.22);
+        ctx.lineTo(-c * 0.05, 0);
+        ctx.lineTo(-c * 0.15, c * 0.22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.globalAlpha = 1;
-      if (this.turnAngle === undefined) return;
-      const [cx, cy] = this.px(this.start);
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(this.turnAngle);
-      ctx.beginPath();
-      ctx.moveTo(c * 0.4, 0);
-      ctx.lineTo(-c * 0.15, -c * 0.22);
-      ctx.lineTo(-c * 0.05, 0);
-      ctx.lineTo(-c * 0.15, c * 0.22);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
       return;
     }
     if (this.state === "idle") {
@@ -670,6 +833,69 @@ export class PhoneApp {
     ctx.beginPath();
     ctx.arc(end[0], end[1], c / 3, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  /**
+   * The door toward the neighbour the finger points at: its line where it really is (not snapped to the grid),
+   * and Foundry's door icon in that neighbour cell. Plain walls are never shown.
+   */
+  private drawAround(css: CSSStyleDeclaration, accent: string, alpha: number) {
+    const { ctx, cellPx: c, hoverDir: dir } = this;
+    const around = this.hovered();
+    if (!dir || !around) return;
+    const [nx, ny] = this.neighbour(dir);
+    const door = around.door;
+    // the cell to tap
+    ctx.globalAlpha = 0.6 * alpha;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(nx * c + 2, ny * c + 2, c - 3, c - 3);
+
+    // the door's segment is in cells relative to the token centre, which is the centre of the touched cell
+    const [ox, oy] = this.px(this.start);
+    const [x0, y0, x1, y1] = door.c;
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = css.getPropertyValue("--bmp-door").trim() || "#7b7bff";
+    ctx.lineWidth = Math.max(3, c / 7);
+    ctx.lineCap = "round";
+    ctx.setLineDash(door.open ? [c / 6, c / 8] : []);
+    ctx.beginPath();
+    ctx.moveTo(ox + x0 * c, oy + y0 * c);
+    ctx.lineTo(ox + x1 * c, oy + y1 * c);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const fx = this.fx;
+    const age = fx ? performance.now() - fx.since : 0;
+    const shake = fx?.deny && age < DENY_SHAKE_MS ? Math.sin(age / 22) * c * 0.12 * (1 - age / DENY_SHAKE_MS) : 0;
+    const size = c * 0.8;
+    const x = nx * c + (c - size) / 2 + shake;
+    const y = ny * c + (c - size) / 2;
+    ctx.globalAlpha = 0.8 * alpha;
+    ctx.fillStyle = fx?.deny ? css.getPropertyValue("--bmp-bad").trim() || "#ff6b6b" : "#000";
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, size / 8);
+    ctx.fill();
+    // a locked door shows closed, the phone never knows it is locked until it tries
+    const icon = this.doorIcon(door.open);
+    ctx.globalAlpha = (this.state === "door" ? 0.6 : 1) * alpha;
+    if (icon) ctx.drawImage(icon, x + size * 0.1, y + size * 0.1, size * 0.8, size * 0.8);
+
+    if (fx?.text) {
+      ctx.font = `600 ${Math.max(12, Math.round(c * 0.32))}px sans-serif`;
+      const w = ctx.measureText(fx.text).width + 12;
+      const h = Math.max(18, c * 0.5);
+      const lx = Math.min(Math.max(2, nx * c + c / 2 - w / 2), this.cols * c - w - 2);
+      const ly = ny * c > h + 4 ? ny * c - h - 4 : (ny + 1) * c + 4;
+      ctx.globalAlpha = 0.9 * alpha;
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.roundRect(lx, ly, w, h, 6);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textBaseline = "middle";
+      ctx.fillText(fx.text, lx + 6, ly + h / 2);
+    }
   }
 }
 

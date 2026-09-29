@@ -26,6 +26,11 @@ export function toTable([x, y]: Cell, seat: Seat = "bottom"): Cell {
   }
 }
 
+/** An offset on the table screen -> the same offset as the player sees it. The reverse of toTable. */
+export function fromTable([x, y]: Cell, seat: Seat = "bottom"): Cell {
+  return toTable([x, y], SEATS[(4 - (TURNS[seat] ?? 0)) % 4]);
+}
+
 /** A screen angle (radians, 0 = right, clockwise) as the player sees it -> the angle on the table screen. */
 export function angleToTable(angle: number, seat: Seat = "bottom"): number {
   return angle + ((TURNS[seat] ?? 0) * Math.PI) / 2;
