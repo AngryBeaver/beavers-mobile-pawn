@@ -68,6 +68,7 @@
       "cancelHint": "Double-tap to cancel.",
       "waiting": "Waiting for the table screen...",
       "noTable": "The table screen did not answer. Is it connected and set to Table?",
+      "paused": "The game is paused. Tap the destination again once it continues, or double-tap to cancel.",
       "blocked": "A wall is in the way, the path was shortened.",
       "steps": "{steps} cells",
       "stepsDistance": "{steps} cells, {distance} {units}",

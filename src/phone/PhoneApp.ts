@@ -546,6 +546,8 @@ export class PhoneApp {
     if (this.state !== "pending" || !r?.ok || !r.allowed || r.allowed < 2) return;
     const token = game.scenes.get(r.sceneId)?.tokens.get(r.tokenId);
     if (!token) return this.setStatus(t("err.no-token"));
+    // Like Foundry itself: a paused game lets players turn but not move. Stay pending, the tap works once unpaused.
+    if (game.paused && !game.user.isGM) return this.setStatus(t("paused"));
 
     this.state = "moving"; // ignore touches until the walk is done
     const walk = this.tablePath().slice(0, r.allowed);
