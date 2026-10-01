@@ -1,4 +1,5 @@
-import { crossing, doorInDirection, NEIGHBOURS, type AroundDir, type WallHit } from "../core/doors.js";
+import { crossing, doorInDirection, NEIGHBOURS, relative, type AroundDir, type Segment, type WallHit } from "../core/doors.js";
+import { describeDoor } from "../extensions/doorExtensions.js";
 import { clipPath, sanitizePath, stepCount, type Cell, type Path } from "../core/path.js";
 import {
   SOCKET_NAME,
@@ -38,6 +39,8 @@ const onViewedLevel = (wall: any) => (canvas.level && wall.includedInLevel ? wal
  * cell's centre (the same line a one cell step of a path is checked on), if it is a door. Walls that block movement
  * come from Foundry's own collision test (one-way walls, wall types and levels as for moving), so a door behind a
  * wall is out of reach. Open doors block nothing, so they are looked for separately: they can still be closed.
+ * A hit is the edge's own segment, not the wall's: a door extension may add edges for a moved door (its open leaf)
+ * that belong to the same wall but stand somewhere else.
  */
 function scanAround(scene: any, token: any): AroundDir[] {
   const cell: number = scene.grid.size;
@@ -50,8 +53,7 @@ function scanAround(scene: any, token: any): AroundDir[] {
   return NEIGHBOURS.flatMap((dir) => {
     const b = { x: c0.x + dir[0] * cell, y: c0.y + dir[1] * cell, elevation: c0.elevation };
     const hits: WallHit[] = [];
-    const add = (wall: any) => {
-      const [x0, y0, x1, y1] = wall.c;
+    const add = (wall: any, [x0, y0, x1, y1]: Segment) => {
       const t = crossing(c0, b, { x: x0, y: y0 }, { x: x1, y: y1 });
       if (t === null) return;
       hits.push({ id: wall.id, c: [x0, y0, x1, y1], t, door: wall.door === DOOR, open: wall.ds === OPEN });
@@ -61,11 +63,18 @@ function scanAround(scene: any, token: any): AroundDir[] {
       for (const edge of vertex.edges ?? []) {
         // v14 edges point to the WallDocument, v13 to the Wall placeable. Scene bounds have no object.
         const wall = edge.object?.document ?? edge.object;
-        if (wall?.documentName === "Wall") add(wall);
+        if (wall?.documentName === "Wall") add(wall, [edge.a.x, edge.a.y, edge.b.x, edge.b.y]);
       }
     }
-    for (const wall of openDoors) add(wall);
-    return doorInDirection(dir, hits, c0, cell) ?? [];
+    for (const wall of openDoors) add(wall, wall.c);
+    const found = doorInDirection(dir, hits, c0, cell);
+    if (!found) return [];
+    const described = describeDoor(scene.walls.get(found.door.id));
+    if (described) {
+      const { extension, config, amount } = described;
+      found.door.motion = { ext: extension.id, config, amount, c: relative(scene.walls.get(found.door.id).c, c0, cell) };
+    }
+    return found;
   });
 }
 
@@ -203,6 +212,13 @@ export class TableOverlay {
         return reply({ error });
       }
       const wall = canvas.scene.walls.get(msg.wallId);
+      const described = describeDoor(wall);
+      if (described) {
+        // The extension moves the door (and routes to the GM where it has to). Without an amount it opens fully.
+        const amount = typeof msg.amount === "number" && Number.isFinite(msg.amount) ? msg.amount : undefined;
+        const { error } = await described.extension.use(wall, msg.open, amount);
+        return reply(error ? { error } : { ok: true, open: msg.open });
+      }
       const { OPEN, CLOSED } = CONST.WALL_DOOR_STATES;
       if ((wall.ds === OPEN) !== msg.open) await wall.update({ ds: msg.open ? OPEN : CLOSED });
       reply({ ok: true, open: msg.open });

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { aroundToPad, crossing, doorInDirection, NEIGHBOURS, sanitizeAround, type WallHit } from "../src/core/doors";
+import {
+  aroundToPad,
+  crossing,
+  doorInDirection,
+  NEIGHBOURS,
+  sanitizeAround,
+  segmentToPad,
+  type Segment,
+  type WallHit,
+} from "../src/core/doors";
 import { fromTable, SEATS, toTable } from "../src/core/seat";
 
 const O = { x: 0, y: 0 };
@@ -59,7 +68,35 @@ describe("fromTable", () => {
   });
 });
 
+describe("segmentToPad", () => {
+  // A door extension computes leaves and drag amounts in the phone's frame. That only matches the table if every seat
+  // is a turn, never a mirror: a door swinging clockwise on the table must swing clockwise on the phone too.
+  const turnClockwise = ([x0, y0, x1, y1]: Segment, deg: number): Segment => {
+    const r = (deg * Math.PI) / 180;
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    return [x0, y0, x0 + dx * Math.cos(r) - dy * Math.sin(r), y0 + dx * Math.sin(r) + dy * Math.cos(r)];
+  };
+  const close = (a: Segment, b: Segment) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i], 9));
+
+  it("turns a door the same way on every seat", () => {
+    const door: Segment = [0.5, -0.5, 0.5, 0.5];
+    for (const seat of SEATS) {
+      for (const deg of [30, 90, -45, 180]) {
+        close(segmentToPad(turnClockwise(door, deg), seat), turnClockwise(segmentToPad(door, seat), deg));
+      }
+    }
+  });
+});
+
 describe("aroundToPad", () => {
+  it("turns the closed door of a moving door too", () => {
+    const motion = { ext: "x", config: { kind: "swing" }, amount: 45, c: [0.5, -0.5, 0.5, 0.5] as const };
+    const [a] = aroundToPad([{ dir: [1, 0], door: { id: "d", open: true, c: [0.5, -0.5, 1.2, -0.5], motion } }], "left");
+    expect(a.door.motion?.c).toEqual([-0.5, -0.5, 0.5, -0.5]);
+    expect(a.door.motion?.config).toEqual({ kind: "swing" });
+    expect(a.door.motion?.amount).toBe(45);
+  });
   it("turns direction and door segment for a player at the left edge", () => {
     // table right is the left-seat player's up
     const [a] = aroundToPad([{ dir: [1, 0], door: { id: "d", open: false, c: [0.5, -0.5, 0.5, 0.5] } }], "left");
@@ -80,6 +117,16 @@ describe("sanitizeAround", () => {
       { dir: [0, -1] },
     ]);
     expect(out).toEqual([{ dir: [1, 0], door: good }]);
+  });
+  it("keeps a good motion and drops a broken one, but not the door", () => {
+    const c = [0, 0, 1, 1];
+    const motion = { ext: "solid", config: { kind: "slide" }, amount: 30, c: [0, 0, 1, 0] };
+    const out = sanitizeAround([
+      { dir: [1, 0], door: { id: "a", open: true, c, motion } },
+      { dir: [0, 1], door: { id: "b", open: true, c, motion: { ext: "solid", amount: "x", c } } },
+    ]);
+    expect(out[0].door.motion).toEqual(motion);
+    expect(out[1].door).toEqual({ id: "b", open: true, c });
   });
   it("accepts nothing that is no list", () => {
     expect(sanitizeAround(undefined)).toEqual([]);

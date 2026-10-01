@@ -1,4 +1,6 @@
 import { MODULE_ID } from "./core/protocol.js";
+import { exposeApi } from "./extensions/doorExtensions.js";
+import { registerSolidDoors } from "./extensions/solidDoors.js";
 import { PhoneApp } from "./phone/PhoneApp.js";
 import { showRestorePill } from "./phone/RestorePill.js";
 import { registerAssignmentsMenu } from "./settings/AssignmentsApp.js";
@@ -8,7 +10,11 @@ import { TableOverlay } from "./table/TableOverlay.js";
 Hooks.once("init", () => {
   registerSettings();
   registerAssignmentsMenu();
+  exposeApi();
 });
+
+// After every module's init, so their APIs exist. Table and phone both need the door extensions.
+Hooks.once("setup", () => registerSolidDoors());
 
 Hooks.once("ready", () => {
   const role = resolveRole();

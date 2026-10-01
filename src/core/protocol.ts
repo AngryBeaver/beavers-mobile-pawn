@@ -73,6 +73,8 @@ export interface DoorMessage {
   seq: number;
   wallId: string;
   open: boolean;
+  /** How far to open a door a door extension moves (see DoorMotion). Without it the door opens all the way. */
+  amount?: number;
 }
 
 /** table -> phone: answer to DoorMessage. */

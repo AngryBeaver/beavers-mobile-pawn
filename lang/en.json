@@ -88,7 +88,9 @@
         "not-owner": "Not your character",
         "no-token": "No token on the scene",
         "no-scene": "No scene on the table",
-        "table-error": "Table error"
+        "table-error": "Table error",
+        "no-door": "Not a door any more",
+        "gm-error": "The GM could not do it"
       },
       "reloading": "Switching this device to phone mode..."
     }

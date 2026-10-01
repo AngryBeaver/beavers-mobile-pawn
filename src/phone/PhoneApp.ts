@@ -1,5 +1,6 @@
 import { pickActor } from "../core/assignments.js";
-import { aroundToPad, sanitizeAround, type AroundDir } from "../core/doors.js";
+import { aroundToPad, sanitizeAround, type AroundDir, type DoorExtension, type Point, type Segment } from "../core/doors.js";
+import { describeDoor, doorExtension } from "../extensions/doorExtensions.js";
 import { extendPathToward, ORIGIN, sanitizePath, stepCount, toWaypoints, type Cell, type Path } from "../core/path.js";
 import {
   MODULE_ID,
@@ -27,12 +28,15 @@ const MIN_ROWS = 11;
 const DOOR_HOLD_MS = 700;
 const DOOR_FADE_MS = 400;
 const DENY_SHAKE_MS = 450;
+/** How far (in cells) the finger must move on an armed door before the press drags the door instead of tapping it. */
+const DOOR_DRAG_DEAD_ZONE = 0.2;
 
 /**
  * armed: a turn was released over a door, the door waits for a tap. door: the tap was sent, waiting for the table.
- * doorFx: the table answered, the result shows and fades.
+ * doorFx: the table answered, the result shows and fades. doorDrag: pressed on the armed door; a release without
+ * moving taps it, sliding moves a door that a door extension handles (see DoorMotion) by any amount.
  */
-type State = "idle" | "turning" | "dragging" | "pending" | "moving" | "armed" | "door" | "doorFx";
+type State = "idle" | "turning" | "dragging" | "pending" | "moving" | "armed" | "door" | "doorFx" | "doorDrag";
 
 const t = (key: string, data?: Record<string, unknown>) =>
   data ? game.i18n.format(`beaversMobilePawn.phone.${key}`, data) : game.i18n.localize(`beaversMobilePawn.phone.${key}`);
@@ -95,6 +99,8 @@ export class PhoneApp {
   private fx?: { deny: boolean; text?: string; since: number };
   private fxFrame?: number;
   private icons = new Map<string, HTMLImageElement>();
+  private doorGrab?: { pointer: Point; amount: number; moved: boolean }; // where a press on the armed door started
+  private dragAmount?: number; // how far the dragged door would open, while doorDrag has moved
 
   start_() {
     this.minCols = getSetting<number>(S.PAD_COLUMNS);
@@ -110,7 +116,7 @@ export class PhoneApp {
     Hooks.on("updateWall", (wall: any) => {
       const shown = this.around.find((a) => a.door.id === wall.id);
       if (!shown) return;
-      shown.door.open = wall.ds === CONST.WALL_DOOR_STATES.OPEN;
+      this.refreshDoor(shown, wall);
       this.draw();
     });
     // The sheet renders itself into a Foundry window, move it into our page as soon as it exists.
@@ -361,11 +367,11 @@ export class PhoneApp {
 
   private onDown(e: PointerEvent) {
     if (!this.actor || this.state === "turning" || this.state === "dragging" || this.state === "moving") return;
-    if (this.state === "door") return; // waiting for the table's answer
+    if (this.state === "door" || this.state === "doorDrag") return; // waiting for the table, or a second finger
     const cell = this.cellAt(e);
     if (this.state === "armed" && this.hoverDir && sameCell(cell, this.neighbour(this.hoverDir))) {
-      this.downCell = undefined; // its release is no tap
-      return this.useDoor();
+      this.downCell = undefined; // decided on release: a tap, or the end of a door drag
+      return this.grabDoor(e);
     }
     // Anywhere else: the door and arrow go, and this touch counts as a fresh one (e.g. the first of a double tap).
     if (this.state === "armed" || this.state === "doorFx") this.disarm();
@@ -468,9 +474,75 @@ export class PhoneApp {
     if (this.hovered()) navigator.vibrate?.(10);
   }
 
-  private useDoor() {
+  /** The door extension that moves the hovered door, if any, with its description of it. */
+  private motion(): { ext: DoorExtension; motion: NonNullable<AroundDir["door"]["motion"]> } | undefined {
+    const motion = this.hovered()?.door.motion;
+    const ext = doorExtension(motion?.ext);
+    return motion && ext ? { ext, motion } : undefined;
+  }
+
+  /** The finger, relative to the touched cell's centre in cells: the frame the door segments are in. */
+  private padPoint(e: PointerEvent): Point {
+    const [rx, ry] = this.rawCellAt(e);
+    return { x: rx - 0.5, y: ry - 0.5 };
+  }
+
+  /** A shown door after its wall changed: open state and, for a moving door, how far. */
+  private refreshDoor(shown: AroundDir, wall: any) {
+    shown.door.open = wall.ds === CONST.WALL_DOOR_STATES.OPEN;
+    const motion = shown.door.motion;
+    const described = motion && describeDoor(wall);
+    if (motion && described?.extension.id === motion.ext) motion.amount = described.amount;
+  }
+
+  /** Pressed on the armed door. Nothing happens yet: releasing taps it, sliding drags it. */
+  private grabDoor(e: PointerEvent) {
+    this.canvasEl.setPointerCapture(e.pointerId);
+    const door = this.hovered()?.door;
+    const amount = door?.open && door.motion ? door.motion.amount : 0;
+    this.doorGrab = { pointer: this.padPoint(e), amount, moved: false };
+    this.dragAmount = undefined;
+    this.state = "doorDrag";
+    this.draw();
+  }
+
+  /** A door a door extension moves follows the finger, only on this phone until released. */
+  private dragDoor(e: PointerEvent) {
+    const found = this.motion();
+    const grab = this.doorGrab;
+    if (!found || !grab) return;
+    const p = this.padPoint(e);
+    if (!grab.moved && Math.hypot(p.x - grab.pointer.x, p.y - grab.pointer.y) < DOOR_DRAG_DEAD_ZONE) return;
+    grab.moved = true;
+    try {
+      const amount = found.ext.amountToward(found.motion.config, found.motion.c, p, grab);
+      // a short tick every 5 degrees or percent
+      if (Math.floor(amount / 5) !== Math.floor((this.dragAmount ?? -5) / 5)) navigator.vibrate?.(5);
+      this.dragAmount = amount;
+    } catch (err) {
+      console.error(`${MODULE_ID} | door extension ${found.ext.id} could not follow the finger`, err);
+    }
+    this.draw();
+  }
+
+  private releaseDoor(cancelled: boolean) {
+    const grab = this.doorGrab;
+    const amount = this.dragAmount;
+    const found = this.motion();
+    this.doorGrab = undefined;
+    this.dragAmount = undefined;
+    this.state = "armed";
+    if (cancelled) return this.draw();
+    if (!grab?.moved || amount === undefined || !found) return this.useDoor(); // a tap
+    if (amount < found.ext.closeBelow) return this.useDoor(false);
+    this.useDoor(true, amount);
+  }
+
+  /** Open (to `amount`, all the way without one) or close the hovered door. By default the other way round. */
+  private useDoor(open?: boolean, amount?: number) {
     const door = this.hovered()?.door;
     if (!door) return this.disarm();
+    open ??= !door.open;
     // Like Foundry itself: a paused game lets players turn but not use doors. No need to ask the table.
     if (game.paused && !game.user.isGM) return this.doorFeedback(true, t("door.paused"));
     this.state = "door";
@@ -480,7 +552,8 @@ export class PhoneApp {
       actorId: this.actor.id,
       seq: ++this.doorSeq,
       wallId: door.id,
-      open: !door.open,
+      open,
+      ...(open && amount !== undefined ? { amount } : {}),
     };
     game.socket.emit(SOCKET_NAME, msg);
     navigator.vibrate?.(15);
@@ -497,6 +570,9 @@ export class PhoneApp {
     const door = this.hovered()?.door;
     if (msg.ok) {
       if (door && typeof msg.open === "boolean") door.open = msg.open;
+      const shown = this.hovered();
+      const wall = shown && this.token?.parent?.walls.get(shown.door.id);
+      if (shown && wall) this.refreshDoor(shown, wall);
       return this.doorFeedback(false);
     }
     this.doorFeedback(true, t(`door.${msg.error}`));
@@ -572,6 +648,7 @@ export class PhoneApp {
 
   private onMove(e: PointerEvent) {
     if (this.state === "turning") return this.turnToward(e);
+    if (this.state === "doorDrag") return this.dragDoor(e);
     if (this.state !== "dragging") return;
     const [rx, ry] = this.rawCellAt(e);
     const next = extendPathToward(this.path, rx, ry, getSetting<number>(S.MAX_STEPS));
@@ -582,6 +659,7 @@ export class PhoneApp {
   }
 
   private onUp(e: PointerEvent, cancelled = false) {
+    if (this.state === "doorDrag") return this.releaseDoor(cancelled);
     if (this.state !== "dragging") return this.onTap(e, cancelled);
     if (cancelled || stepCount(this.path) === 0) return this.cancel();
     this.state = "pending";
@@ -765,7 +843,8 @@ export class PhoneApp {
 
     // the table draws this user's paths in the user colour, so the pad does too
     const accent = userColor() || css.getPropertyValue("--bmp-accent").trim() || "#9b8cff";
-    if (this.state === "turning" || this.state === "armed" || this.state === "door" || this.state === "doorFx") {
+    const doorStates: State[] = ["turning", "armed", "door", "doorFx", "doorDrag"];
+    if (doorStates.includes(this.state)) {
       // the touched cell, and once the finger left its centre a small arrow toward it
       const alpha = this.fxAlpha();
       const [tx, ty] = this.start;
@@ -851,18 +930,28 @@ export class PhoneApp {
     ctx.lineWidth = 2;
     ctx.strokeRect(nx * c + 2, ny * c + 2, c - 3, c - 3);
 
-    // the door's segment is in cells relative to the token centre, which is the centre of the touched cell
+    // segments are in cells relative to the token centre, which is the centre of the touched cell
     const [ox, oy] = this.px(this.start);
-    const [x0, y0, x1, y1] = door.c;
-    ctx.globalAlpha = alpha;
+    const line = ([x0, y0, x1, y1]: Segment) => {
+      ctx.beginPath();
+      ctx.moveTo(ox + x0 * c, oy + y0 * c);
+      ctx.lineTo(ox + x1 * c, oy + y1 * c);
+      ctx.stroke();
+    };
+    const view = this.doorView();
     ctx.strokeStyle = css.getPropertyValue("--bmp-door").trim() || "#7b7bff";
-    ctx.lineWidth = Math.max(3, c / 7);
     ctx.lineCap = "round";
-    ctx.setLineDash(door.open ? [c / 6, c / 8] : []);
-    ctx.beginPath();
-    ctx.moveTo(ox + x0 * c, oy + y0 * c);
-    ctx.lineTo(ox + x1 * c, oy + y1 * c);
-    ctx.stroke();
+    if (view.doorway) {
+      // a moving door: the doorway it left, faint, and the door where it stands
+      ctx.globalAlpha = 0.35 * alpha;
+      ctx.lineWidth = Math.max(2, c / 14);
+      ctx.setLineDash([c / 6, c / 8]);
+      line(view.doorway);
+    }
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = Math.max(3, c / 7);
+    ctx.setLineDash(view.dashed ? [c / 6, c / 8] : []);
+    view.segments.forEach(line);
     ctx.setLineDash([]);
 
     const fx = this.fx;
@@ -877,13 +966,14 @@ export class PhoneApp {
     ctx.roundRect(x, y, size, size, size / 8);
     ctx.fill();
     // a locked door shows closed, the phone never knows it is locked until it tries
-    const icon = this.doorIcon(door.open);
+    const icon = this.doorIcon(view.open);
     ctx.globalAlpha = (this.state === "door" ? 0.6 : 1) * alpha;
     if (icon) ctx.drawImage(icon, x + size * 0.1, y + size * 0.1, size * 0.8, size * 0.8);
 
-    if (fx?.text) {
+    const text = fx?.text ?? view.label;
+    if (text) {
       ctx.font = `600 ${Math.max(12, Math.round(c * 0.32))}px sans-serif`;
-      const w = ctx.measureText(fx.text).width + 12;
+      const w = ctx.measureText(text).width + 12;
       const h = Math.max(18, c * 0.5);
       const lx = Math.min(Math.max(2, nx * c + c / 2 - w / 2), this.cols * c - w - 2);
       const ly = ny * c > h + 4 ? ny * c - h - 4 : (ny + 1) * c + 4;
@@ -894,7 +984,30 @@ export class PhoneApp {
       ctx.fill();
       ctx.fillStyle = "#fff";
       ctx.textBaseline = "middle";
-      ctx.fillText(fx.text, lx + 6, ly + h / 2);
+      ctx.fillText(text, lx + 6, ly + h / 2);
+    }
+  }
+
+  /**
+   * How the hovered door looks now. A plain door: its line, dashed when open. A door a door extension moves: its
+   * parts where they stand (while dragged: where the finger puts them), and the doorway they left.
+   */
+  private doorView(): { segments: Segment[]; doorway?: Segment; dashed: boolean; open: boolean; label?: string } {
+    const door = this.hovered()!.door;
+    const plain = { segments: [door.c], dashed: door.open, open: door.open };
+    const found = this.motion();
+    if (!found) return plain;
+    const { ext, motion } = found;
+    const dragging = this.state === "doorDrag" && this.dragAmount !== undefined;
+    const amount = dragging ? this.dragAmount! : motion.amount;
+    const open = dragging ? amount >= ext.closeBelow : door.open;
+    try {
+      const label = dragging ? ext.label(motion.config, amount) : undefined;
+      if (!open) return { segments: [motion.c], dashed: false, open, label };
+      return { segments: ext.leaf(motion.config, motion.c, amount), doorway: motion.c, dashed: false, open, label };
+    } catch (e) {
+      console.error(`${MODULE_ID} | door extension ${ext.id} could not draw the door`, e);
+      return plain;
     }
   }
 }
