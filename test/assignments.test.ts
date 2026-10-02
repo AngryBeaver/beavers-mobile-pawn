@@ -22,7 +22,9 @@ describe("normalizeAssignments", () => {
     expect(normalizeAssignments({ a: { role: "auto", actors: [], seat: "left" } })).toEqual({
       a: { role: "auto", actors: [], seat: "left" },
     });
-    expect(normalizeAssignments({ a: { role: "phone", seat: "bottom" } })).toEqual({ a: { role: "phone", actors: [] } });
+    expect(normalizeAssignments({ a: { role: "phone", seat: "bottom" } })).toEqual({
+      a: { role: "phone", actors: [] },
+    });
     expect(normalizeAssignments({ a: { role: "auto", seat: "under" } })).toEqual({});
   });
 });

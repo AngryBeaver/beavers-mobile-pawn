@@ -3,15 +3,15 @@
     "settings": {
       "role": {
         "name": "This device is",
-        "hint": "Table: the shared screen that shows the map and the paths players drag. Phone: shows only your character sheet and the move grid. Follow GM assignment: uses the role the GM gave your user, and without one small touch screens of non-GM users become phones. Set this only if this device should ignore the GM's assignment.",
+        "hint": "Table: the shared screen that shows the map and the paths players drag. Mobile: shows only your character sheet and the move grid, for a tablet or phone. Follow GM assignment: uses the role the GM gave your user, and without one phones of non-GM users become mobiles. Set this only if this device should ignore the GM's assignment.",
         "auto": "Follow GM assignment",
-        "phone": "Phone",
+        "phone": "Mobile",
         "table": "Table screen",
         "off": "Off (normal Foundry)"
       },
       "padColumns": {
-        "name": "Grid columns on the phone",
-        "hint": "The fewest grid cells across the phone's move grid. The grid also always shows at least 11 rows, on a short screen the cells get smaller so both fit."
+        "name": "Grid columns on the mobile",
+        "hint": "The fewest grid cells across the mobile's move grid. The grid also always shows at least 11 rows, on a short screen the cells get smaller so both fit."
       },
       "maxSteps": {
         "name": "Longest path (cells)",
@@ -19,26 +19,26 @@
       },
       "stepDelay": {
         "name": "Movement speed (ms per cell)",
-        "hint": "How long the token takes per cell when a player confirms a move from the phone."
+        "hint": "How long the token takes per cell when a player confirms a move from their mobile."
       }
     },
     "assign": {
       "menuName": "Roles and characters",
       "menuLabel": "Assign roles",
-      "menuHint": "Decide per user whether they are a phone, the table screen or a normal client, and which characters a phone user can pick.",
+      "menuHint": "Decide per user whether they use a mobile, the table screen or a normal client, and which characters a mobile user can pick.",
       "title": "Roles and characters",
-      "hint": "Auto: small touch screens of players become phones, everything else is a normal Foundry client. Characters: what the user can pick on the phone. Leave empty to offer every character the user owns. Only owned characters can be moved, grant ownership in the actor's permissions. Seat: the edge of the table screen the player sits at, so up on their phone means away from them on the table. Changes apply at once, a changed role reloads that user's browser.",
+      "hint": "Auto: players' phones become mobiles, everything else (also tablets) is a normal Foundry client, so give tablets the Mobile role. Characters: what the user can pick on the mobile. Leave empty to offer every character the user owns. Only owned characters can be moved, grant ownership in the actor's permissions. Seat: the edge of the table screen the player sits at, so up on their mobile means away from them on the table. Changes apply at once, a changed role reloads that user's browser.",
       "user": "User",
       "roleColumn": "Role",
       "seatColumn": "Seat at the table",
-      "characters": "Characters on the phone",
+      "characters": "Characters on the mobile",
       "noneOwned": "Owns no characters",
       "notOwner": "This user does not own this character and cannot move its token.",
       "save": "Save",
       "saved": "Roles and characters saved.",
       "role": {
         "auto": "Auto",
-        "phone": "Phone",
+        "phone": "Mobile",
         "table": "Table screen",
         "off": "Normal Foundry"
       },
@@ -52,12 +52,12 @@
     "phone": {
       "tabSheet": "Sheet",
       "tabGrid": "Move",
-      "exit": "Exit phone mode",
-      "exitTitle": "Leave phone mode?",
-      "exitText": "This device switches back to the normal Foundry screen. Closing this browser tab brings the phone back.",
+      "exit": "Exit mobile mode",
+      "exitTitle": "Leave mobile mode?",
+      "exitText": "This device switches back to the normal Foundry screen. Closing this browser tab brings mobile mode back.",
       "exitStay": "Stay",
       "exitLeave": "Leave",
-      "restore": "Phone mode",
+      "restore": "Mobile mode",
       "chooseCharacter": "Choose your character",
       "noCharacterShort": "No character",
       "noCharacter": "No character is available for your user. The GM can assign one in Module Settings, Roles and characters.",
@@ -92,7 +92,7 @@
         "no-door": "Not a door any more",
         "gm-error": "The GM could not do it"
       },
-      "reloading": "Switching this device to phone mode..."
+      "reloading": "Switching this device to mobile mode..."
     }
   }
 }

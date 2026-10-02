@@ -46,7 +46,12 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, S.LAST_ACTOR, { scope: "client", config: false, type: String, default: "" });
   // "Disable Canvas" is a browser-wide setting (every world, every user of this browser). This remembers that phone
   // mode switched it on, so it can be switched off again when phone mode ends.
-  game.settings.register(MODULE_ID, S.CANVAS_FLIPPED, { scope: "client", config: false, type: Boolean, default: false });
+  game.settings.register(MODULE_ID, S.CANVAS_FLIPPED, {
+    scope: "client",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
   game.settings.register(MODULE_ID, S.PAD_COLUMNS, {
     name: "beaversMobilePawn.settings.padColumns.name",
     hint: "beaversMobilePawn.settings.padColumns.hint",

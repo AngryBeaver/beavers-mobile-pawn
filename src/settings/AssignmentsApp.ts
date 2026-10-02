@@ -5,7 +5,10 @@ import { getAssignments, S } from "../settings.js";
 
 const tr = (key: string) => game.i18n.localize(`beaversMobilePawn.assign.${key}`);
 const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 
 /**
  * GM only. One row per user: the role of that user (phone, table screen, ...), which edge of the table screen
@@ -30,11 +33,13 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
     const rows = users.map((user) => {
       const cur = current[user.id] ?? { role: "auto", actors: [] };
       // GMs own everything, so for them "owned" would list the whole world: show player characters only.
-      const offered = actors.filter((a) => cur.actors.includes(a.id) || (user.isGM ? a.hasPlayerOwner : a.testUserPermission(user, "OWNER")));
+      const offered = actors.filter(
+        (a) => cur.actors.includes(a.id) || (user.isGM ? a.hasPlayerOwner : a.testUserPermission(user, "OWNER")),
+      );
       // GMs are never phones (see resolveRole), so don't offer it
-      const roles = USER_ROLES.filter((r) => !(user.isGM && r === "phone")).map(
-        (r) => `<option value="${r}" ${r === cur.role ? "selected" : ""}>${esc(tr(`role.${r}`))}</option>`,
-      ).join("");
+      const roles = USER_ROLES.filter((r) => !(user.isGM && r === "phone"))
+        .map((r) => `<option value="${r}" ${r === cur.role ? "selected" : ""}>${esc(tr(`role.${r}`))}</option>`)
+        .join("");
       const seat = cur.seat ?? "bottom";
       const seats = SEATS.map(
         (v) => `<option value="${v}" ${v === seat ? "selected" : ""}>${esc(tr(`seat.${v}`))}</option>`,
@@ -77,7 +82,9 @@ export class AssignmentsApp extends foundry.applications.api.ApplicationV2 {
     for (const row of Array.from(form.querySelectorAll<HTMLElement>("tr[data-user]"))) {
       const role = row.querySelector<HTMLSelectElement>("select.bmp-role")!.value as Assignments[string]["role"];
       const seat = row.querySelector<HTMLSelectElement>("select.bmp-seat")!.value as Seat;
-      const actors = Array.from(row.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map((i) => i.value);
+      const actors = Array.from(row.querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked")).map(
+        (i) => i.value,
+      );
       out[row.dataset.user!] = { role, actors, seat };
     }
     await game.settings.set(MODULE_ID, S.ASSIGNMENTS, normalizeAssignments(out));

@@ -92,7 +92,10 @@ describe("segmentToPad", () => {
 describe("aroundToPad", () => {
   it("turns the closed door of a moving door too", () => {
     const motion = { ext: "x", config: { kind: "swing" }, amount: 45, c: [0.5, -0.5, 0.5, 0.5] as const };
-    const [a] = aroundToPad([{ dir: [1, 0], door: { id: "d", open: true, c: [0.5, -0.5, 1.2, -0.5], motion } }], "left");
+    const [a] = aroundToPad(
+      [{ dir: [1, 0], door: { id: "d", open: true, c: [0.5, -0.5, 1.2, -0.5], motion } }],
+      "left",
+    );
     expect(a.door.motion?.c).toEqual([-0.5, -0.5, 0.5, -0.5]);
     expect(a.door.motion?.config).toEqual({ kind: "swing" });
     expect(a.door.motion?.amount).toBe(45);

@@ -132,7 +132,10 @@ export function segmentToPad([x0, y0, x1, y1]: Segment, seat: Seat): Segment {
 export function aroundToPad(around: AroundDir[], seat: Seat): AroundDir[] {
   return around.map(({ dir, door }) => {
     const motion = door.motion && { ...door.motion, c: segmentToPad(door.motion.c, seat) };
-    return { dir: fromTable(dir, seat), door: { ...door, c: segmentToPad(door.c, seat), ...(motion ? { motion } : {}) } };
+    return {
+      dir: fromTable(dir, seat),
+      door: { ...door, c: segmentToPad(door.c, seat), ...(motion ? { motion } : {}) },
+    };
   });
 }
 
@@ -154,7 +157,9 @@ export function sanitizeAround(raw: unknown): AroundDir[] {
     const m = door.motion;
     const mc = segment(m?.c);
     const motion: DoorMotion | undefined =
-      m && typeof m.ext === "string" && num(m.amount) && mc ? { ext: m.ext, config: m.config, amount: m.amount, c: mc } : undefined;
+      m && typeof m.ext === "string" && num(m.amount) && mc
+        ? { ext: m.ext, config: m.config, amount: m.amount, c: mc }
+        : undefined;
     out.push({ dir: [d[0], d[1]], door: { id: door.id, open: door.open, c, ...(motion ? { motion } : {}) } });
   }
   return out;

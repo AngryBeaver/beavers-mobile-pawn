@@ -11,7 +11,9 @@ import { MODULE_ID } from "../core/protocol.js";
 export function keepScreenOn() {
   const wakeLock = navigator.wakeLock;
   if (!wakeLock) {
-    console.info(`${MODULE_ID} | screen wake lock unavailable (needs https and a current browser), the screen may turn off`);
+    console.info(
+      `${MODULE_ID} | screen wake lock unavailable (needs https and a current browser), the screen may turn off`,
+    );
     return;
   }
   let sentinel: WakeLockSentinel | undefined;

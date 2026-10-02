@@ -4,7 +4,15 @@ import { registerSolidDoors } from "./extensions/solidDoors.js";
 import { PhoneApp } from "./phone/PhoneApp.js";
 import { showRestorePill } from "./phone/RestorePill.js";
 import { registerAssignmentsMenu } from "./settings/AssignmentsApp.js";
-import { getSetting, hasExitedPhone, HOOK_ASSIGNMENTS, registerSettings, releaseCanvas, resolveRole, S } from "./settings.js";
+import {
+  getSetting,
+  hasExitedPhone,
+  HOOK_ASSIGNMENTS,
+  registerSettings,
+  releaseCanvas,
+  resolveRole,
+  S,
+} from "./settings.js";
 import { TableOverlay } from "./table/TableOverlay.js";
 
 Hooks.once("init", () => {

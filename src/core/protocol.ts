@@ -90,10 +90,4 @@ export interface DoorResultMessage {
 }
 
 export type PawnMessage =
-  | PathMessage
-  | PathResultMessage
-  | ClearMessage
-  | LocateMessage
-  | LocatedMessage
-  | DoorMessage
-  | DoorResultMessage;
+  PathMessage | PathResultMessage | ClearMessage | LocateMessage | LocatedMessage | DoorMessage | DoorResultMessage;

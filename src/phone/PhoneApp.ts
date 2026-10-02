@@ -1,5 +1,12 @@
 import { pickActor } from "../core/assignments.js";
-import { aroundToPad, sanitizeAround, type AroundDir, type DoorExtension, type Point, type Segment } from "../core/doors.js";
+import {
+  aroundToPad,
+  sanitizeAround,
+  type AroundDir,
+  type DoorExtension,
+  type Point,
+  type Segment,
+} from "../core/doors.js";
 import { describeDoor, doorExtension } from "../extensions/doorExtensions.js";
 import { extendPathToward, ORIGIN, sanitizePath, stepCount, toWaypoints, type Cell, type Path } from "../core/path.js";
 import {
@@ -39,10 +46,15 @@ const DOOR_DRAG_DEAD_ZONE = 0.2;
 type State = "idle" | "turning" | "dragging" | "pending" | "moving" | "armed" | "door" | "doorFx" | "doorDrag";
 
 const t = (key: string, data?: Record<string, unknown>) =>
-  data ? game.i18n.format(`beaversMobilePawn.phone.${key}`, data) : game.i18n.localize(`beaversMobilePawn.phone.${key}`);
+  data
+    ? game.i18n.format(`beaversMobilePawn.phone.${key}`, data)
+    : game.i18n.localize(`beaversMobilePawn.phone.${key}`);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 
 /**
  * Runs on the phone. A header (exit, character picker) above two swipeable pages: the character sheet
@@ -429,9 +441,11 @@ export class PhoneApp {
     if (this.turnAngle === undefined || !this.token?.parent) return;
     // Foundry's rotation 0 faces down (token art looks south) and grows clockwise, screen angle 0 points right.
     const angle = angleToTable(this.turnAngle, this.seat);
-    const rotation = Math.round((((angle * 180) / Math.PI - 90) % 360 + 360) % 360);
+    const rotation = Math.round(((((angle * 180) / Math.PI - 90) % 360) + 360) % 360);
     if (this.token.rotation === rotation) return;
-    this.token.update({ rotation }).catch((err: unknown) => console.warn(`${MODULE_ID} | could not turn the token`, err));
+    this.token
+      .update({ rotation })
+      .catch((err: unknown) => console.warn(`${MODULE_ID} | could not turn the token`, err));
   }
 
   private onLocated(msg: LocatedMessage) {
@@ -886,7 +900,9 @@ export class PhoneApp {
 
     // Until the table answers, show the raw drag faintly. Afterwards the walkable part is solid and the
     // remainder the walls cut off is red.
-    const cut = this.result?.ok ? Math.min(this.result.allowed ?? this.path.length, this.path.length) : this.path.length;
+    const cut = this.result?.ok
+      ? Math.min(this.result.allowed ?? this.path.length, this.path.length)
+      : this.path.length;
     const line = (pts: (readonly [number, number])[], color: string, alpha: number, width: number) => {
       if (pts.length < 2) return;
       ctx.globalAlpha = alpha;

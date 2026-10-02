@@ -1,4 +1,12 @@
-import { crossing, doorInDirection, NEIGHBOURS, relative, type AroundDir, type Segment, type WallHit } from "../core/doors.js";
+import {
+  crossing,
+  doorInDirection,
+  NEIGHBOURS,
+  relative,
+  type AroundDir,
+  type Segment,
+  type WallHit,
+} from "../core/doors.js";
 import { describeDoor } from "../extensions/doorExtensions.js";
 import { clipPath, sanitizePath, stepCount, type Cell, type Path } from "../core/path.js";
 import {
@@ -72,7 +80,12 @@ function scanAround(scene: any, token: any): AroundDir[] {
     const described = describeDoor(scene.walls.get(found.door.id));
     if (described) {
       const { extension, config, amount } = described;
-      found.door.motion = { ext: extension.id, config, amount, c: relative(scene.walls.get(found.door.id).c, c0, cell) };
+      found.door.motion = {
+        ext: extension.id,
+        config,
+        amount,
+        c: relative(scene.walls.get(found.door.id).c, c0, cell),
+      };
     }
     return found;
   });
@@ -154,7 +167,8 @@ export class TableOverlay {
     const centerOf = ([dx, dy]: Cell) => ({ x: c0.x + dx * cell, y: c0.y + dy * cell, elevation: c0.elevation });
 
     const backend = CONFIG.Canvas?.polygonBackends?.move;
-    const isBlocked = (a: Cell, b: Cell) => !!backend?.testCollision(centerOf(a), centerOf(b), { type: "move", mode: "any" });
+    const isBlocked = (a: Cell, b: Cell) =>
+      !!backend?.testCollision(centerOf(a), centerOf(b), { type: "move", mode: "any" });
     const { allowed, blockedAt } = clipPath(path, isBlocked);
 
     this.draw(msg.userId, path, allowed, centerOf, cell, user, scene);
