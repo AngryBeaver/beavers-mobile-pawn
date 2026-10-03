@@ -1,7 +1,7 @@
 {
   "name": "beavers-mobile-pawn",
   "title": "Beaver's Mobile Pawn",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "description": "For in-person game nights: your character sheet on a tablet or phone, the map on a screen on the table, and your mobile device as the gamepad for your token. Dice and initiative stay at the table.",
   "#devDir": "c:\\vtts\\v13.351\\Data\\modules",
   "##devDir": "c:\\vtts\\v14.363\\Data\\modules",

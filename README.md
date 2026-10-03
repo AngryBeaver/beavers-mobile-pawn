@@ -72,7 +72,8 @@ on the game URL.
   normal drag ruler.
 - Distance is `cells x scene distance`, game-system diagonal rules and terrain cost are not applied.
 - The sheet is Foundry's own sheet rendered read-only through CSS. How well a system's sheet lays out on a mobile
-  viewport depends on the system.
+  viewport depends on the system. For dnd5e, [Beaver's Mobile](https://github.com/AngryBeaver/beavers-mobile)
+  (recommended, optional) adds a character sheet laid out for a phone's width; Mobile Pawn shows it like any other.
 - The mobile commits the move itself, so the player needs owner permission of the token (the normal case).
   No GM approval step.
 - Verified against the Foundry v14.363 client source. v13 has fallbacks (`update` instead of `TokenDocument#move`)
