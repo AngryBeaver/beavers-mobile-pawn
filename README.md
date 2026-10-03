@@ -16,6 +16,12 @@ For **in-person game nights**: play old-school D&D around one table, with a few 
 Everything else stays at the table on purpose: you roll real dice, the GM runs initiative, and you talk to each other
 instead of clicking buttons. The module only replaces the parts that paper and plastic do badly.
 
+## Example
+### Display of the app tab characktersheet on a tablet:
+https://github.com/user-attachments/assets/69368796-1dac-4ca5-a993-665a99b16b50
+### Moving the token on the table screen:
+https://github.com/user-attachments/assets/3611a07c-2626-4301-a81a-7a68d406cc00
+
 ## How it works
 
 - **Mobile device**: you only see your character sheet (read-only). Swipe sideways to a grid. Double-tap the grid where your
