@@ -7,7 +7,7 @@
 For **in-person game nights**: play old-school D&D around one table, with a few upgrades over pen and paper.
 
 - Your **character sheet** is on your mobile device instead of on paper. A tablet works best: most game systems'
-  sheets are too wide for a phone screen.
+  sheets are too wide for a phone screen use a tablet or see [Beaver's Mobile](https://github.com/AngryBeaver/beavers-mobile)
 - Instead of miniatures and map tiles there is a **screen on the table** (a TV laid flat, or a monitor) showing the
   map in Foundry VTT.
 - Your mobile device is the **gamepad for your character**: walk it, turn it, open doors. Walls stop you, just like
