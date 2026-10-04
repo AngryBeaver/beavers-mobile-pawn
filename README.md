@@ -10,11 +10,10 @@ For **in-person game nights**: play old-school D&D around one table, with a few 
   sheets are too wide for a phone screen use a tablet or see [Beaver's Mobile](https://github.com/AngryBeaver/beavers-mobile)
 - Instead of miniatures and map tiles there is a **screen on the table** (a TV laid flat, or a monitor) showing the
   map in Foundry VTT.
-- Your mobile device is the **gamepad for your character**: walk it, turn it, open doors. Walls stop you, just like
-  on the table screen.
+- Your mobile device is the **gamepad for your character**: walk it, turn it, open doors.
 
 Everything else stays at the table on purpose: you roll real dice, the GM runs initiative, and you talk to each other
-instead of clicking buttons. The module only replaces the parts that paper and plastic do badly.
+instead of clicking buttons. The module only replaces the parts of paper and map.
 
 ## Example
 ### Display of the app tab characktersheet on a tablet:
@@ -41,11 +40,12 @@ https://github.com/user-attachments/assets/3611a07c-2626-4301-a81a-7a68d406cc00
 - **Doors that move** (with [Beaver's Solid Doors](https://github.com/AngryBeaver/beavers-solid-doors)): the mobile
   shows the door where it stands. Tap opens it all the way or closes it; press the door and slide to open it just as
   far as you like, the door follows your finger and shows the angle (or percent for sliding doors). Slide it back to
-  almost closed to close it. Other modules can add such doors with
-  `game.modules.get("beavers-mobile-pawn").api.registerDoorExtension(...)` (see `DoorExtension` in `src/core/doors.ts`).
+  almost closed to close it.
 
 The mobile never loads the map. It only knows a grid of relative cells, the table screen (which has the walls)
-does the collision check and answers. Everything runs through Foundry's own socket, there is nothing to host.
+does the collision check and answers. Everything runs through Foundry's own socket, there is nothing to host. 
+
+The idea originates based on the game sunderfolk
 
 ## Setup
 
