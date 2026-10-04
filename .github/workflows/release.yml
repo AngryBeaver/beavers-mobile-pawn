@@ -66,3 +66,50 @@ jobs:
           files: |
             package/beavers-mobile-pawn.zip
             package/module.json
+
+      # Registers the version on foundryvtt.com so it shows up in Foundry's package browser.
+      # The manifest URL is pinned to this release's tag, as Foundry requires a version specific manifest.
+      - name: Publish to Foundry
+        env:
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.num }}
+        run: |
+          if [ -z "$FOUNDRY_RELEASE_TOKEN" ]; then
+            echo "FOUNDRY_RELEASE_TOKEN secret is not set"
+            exit 1
+          fi
+          PAYLOAD=$(jq -n \
+            --slurpfile m package/module.json \
+            --arg version "$VERSION" \
+            --arg manifest "$REPO_URL/releases/download/$TAG/module.json" \
+            --arg notes "$REPO_URL/releases/tag/$TAG" \
+            '{
+              id: $m[0].id,
+              release: {
+                version: $version,
+                manifest: $manifest,
+                notes: $notes,
+                compatibility: $m[0].compatibility
+              }
+            }')
+          echo "$PAYLOAD"
+          curl --fail-with-body -sS -X POST "https://foundryvtt.com/_api/packages/release_version/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $FOUNDRY_RELEASE_TOKEN" \
+            -d "$PAYLOAD"
+
+      # Pushes made with the workflow's GITHUB_TOKEN never start another workflow run, [skip ci] is a second guard.
+      - name: Commit version bump to main
+        env:
+          VERSION: ${{ steps.version.outputs.num }}
+        run: |
+          if git diff --quiet -- package.json; then
+            echo "package.json is already at $VERSION"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "bump version to $VERSION [skip ci]" -- package.json
+          git push origin HEAD:main
